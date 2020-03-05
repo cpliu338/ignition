@@ -6,6 +6,9 @@ import java.util.*;
 import javax.swing.*;
 import java.io.*;
 import com.opencsv.*;
+import com.opencsv.exceptions.CsvException;
+import java.util.regex.Pattern;
+import java.util.stream.StreamSupport;
 
 /**
  * http://blog.bdoughan.com/2010/10/how-does-jaxb-compare-to-xstream.html node order
@@ -74,6 +77,11 @@ public class NewJPanel extends javax.swing.JPanel {
         });
 
         jButton2.setText("jButton2");
+        jButton2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton2ActionPerformed(evt);
+            }
+        });
 
         jTextArea1.setColumns(20);
         jTextArea1.setRows(5);
@@ -128,6 +136,47 @@ public class NewJPanel extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     XStream xstream;
+    
+    private String populate(String templatename) {
+        Optional<TagI> first = StreamSupport.stream(
+            allTags.getTags().spliterator(), false)
+                .filter(tag -> tag instanceof Tag && "UDT_DEF".equals(tag.getType()) && templatename.equals(tag.getName()))
+                .findFirst();
+        Map<String, Pattern> patterns = new HashMap<>();
+        if (first.isPresent()) {
+            for (TagI child : first.get().getChildren()) {
+                if (child instanceof Parameters) {
+                    for (TagI prop :  child.getChildren()) {
+                        if (prop.getName().endsWith("Input"))
+                            patterns.put(prop.getName(), Pattern.compile(prop.getValue()));
+                    }
+                }
+            }
+        }
+        else
+            return "Nil";
+        StringBuilder buffer = new StringBuilder();
+        try (CSVReader csv = new CSVReader(new InputStreamReader(
+                new FileInputStream("/home/cp_liu/Downloads/TAWOTU_SWSR.csv")
+        ))) {
+            for (String[] line : csv.readAll()) {
+                if (line.length > 5) {
+                    Iterator<java.util.Map.Entry<String, Pattern>> it = patterns.entrySet().iterator();
+                    while (it.hasNext()) {
+                        java.util.Map.Entry<String, Pattern> entry = it.next();
+                        if (entry.getValue().matcher(line[1]).matches()) {
+                            buffer.append(entry.getKey()).append(":")
+                                    .append(line[1]).append("\n");
+                        }
+                    }
+                }
+            }
+        }
+        catch (IOException | CsvException ex) {
+            buffer.append(ex.getMessage());
+        }
+        return buffer.toString();
+    }
     
     private void serialize() {
         File f = new File(this.jTextField1.getText());
@@ -219,16 +268,20 @@ ns=1;s=[TaiWoTsuenSWPS]SingleBitBinaryInput:0:g1v2i0
     }
     
     public void deserialize() {
-        Tags tags = (Tags)xstream.fromXML(jTextArea1.getText());
-        TagI t = tags.getTags().get(0);
-        if (t==null)
+        allTags = (Tags)//xstream.fromXML(jTextArea1.getText());
+        xstream.fromXML(new File("/home/cp_liu/Downloads", "ignition-tags-20200301.xml"));
+        List<TagI> children = allTags.getTags();
+        if (children==null)
             jTextField1.setText("Null Tag");
         else {
-            List children = t.getChildren();
-            jTextField1.setText(
-            t.getPath()==null ? "No path" : (t.getPath().trim().length()==0?
-                    "Empty path":t.getPath())
-            );
+        for (int i=children.size()-1; i>=0; i--) {
+            TagI c = children.get(i);
+            if (c instanceof Tag) {
+                if (!"UDT_DEF".equals(c.getType()))
+                    children.remove(i);
+            }
+        }
+            jTextField1.setText("Size:"+children.size());
         }
     }
     
@@ -303,6 +356,16 @@ ns=1;s=[TaiWoTsuenSWPS]SingleBitBinaryInput:0:g1v2i0
         displayCurrentTag();
         
     }//GEN-LAST:event_jButton3ActionPerformed
+
+    private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
+        // TODO add your handling code here:
+        if (allTags.getTags().isEmpty())
+            deserialize();
+        else {
+            jTextArea2.setText(populate("Flowmeter"));
+            jTextArea1.setText(xstream.toXML(allTags));
+        }
+    }//GEN-LAST:event_jButton2ActionPerformed
     
 private javax.swing.JScrollPane jScrollPane2;
 private javax.swing.JTextArea jTextArea2;
