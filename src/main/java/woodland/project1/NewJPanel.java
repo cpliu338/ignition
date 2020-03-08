@@ -7,8 +7,12 @@ import javax.swing.*;
 import java.io.*;
 import com.opencsv.*;
 import com.opencsv.exceptions.CsvException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import rf6.RfStatusTag;
 
 /**
  * http://blog.bdoughan.com/2010/10/how-does-jaxb-compare-to-xstream.html node order
@@ -359,8 +363,32 @@ ns=1;s=[TaiWoTsuenSWPS]SingleBitBinaryInput:0:g1v2i0
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
         // TODO add your handling code here:
-        if (allTags.getTags().isEmpty())
-            deserialize();
+        if (allTags.getTags().isEmpty()) {
+            try {
+                deserialize();
+                allTags.setTags(new ArrayList<>());
+                Udt_def def = Udt_def.newInstance();
+                allTags.addTag(def.toTag());
+                Map<String, RfStatusTag> argument = new HashMap<>();
+                RfStatusTag rt = new RfStatusTag();
+                rt.setName("DIPS0CP01C2");
+                argument.put("Start", rt);
+                allTags.addTag(def.instantiateTag("P1", "PS073", argument));
+                jTextArea1.setText(
+                xstream.toXML(allTags));
+/*
+                List<RfStatusTag> result = def.match("/home/cp_liu/Downloads/TAWOTU_SWSR.csv");
+                jTextArea1.setText(
+                    StreamSupport.stream(result.spliterator(),
+                    false).map(t->t.toString()).collect(Collectors.joining("\n"))
+                );*/
+            }
+            catch (RuntimeException ex) {
+                Logger.getLogger(RfStatusTag.class.getName()).log(Level.INFO, null, ex);
+                jTextArea1.setText(ex.getClass().getName());
+            }
+            //deserialize();
+        }
         else {
             jTextArea2.setText(populate("Flowmeter"));
             jTextArea1.setText(xstream.toXML(allTags));
